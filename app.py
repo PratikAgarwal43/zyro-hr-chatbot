@@ -1,4 +1,3 @@
-app_code = """
 # TODO: Build your Streamlit chatbot application
 
 import streamlit as st
@@ -24,7 +23,7 @@ st.markdown("Ask any question regarding company policies, leave, or conduct.")
 @st.cache_resource
 def setup_rag():
     # Path to documents
-    path = "./"
+    path = "/kaggle/input/zyro-dynamics-hr-corpus/"
     
     # Load and Chunk
     loader = PyPDFDirectoryLoader(path)
@@ -39,7 +38,7 @@ def setup_rag():
     
     # Initialize LLM (Ensure secrets are set in your deployment environment)
     # Note: Replace with your chosen provider logic from Cell 9
-    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1) 
+    llm = ChatGroq(model="llama3-8b-8192", temperature=0.1) 
     
     return retriever, llm
 
@@ -59,8 +58,8 @@ def get_response(question):
 
     # RAG Chain
     docs = retriever.invoke(question)
-    context = "\\n\\n".join([d.page_content for d in docs])
-    rag_prompt = ChatPromptTemplate.from_template("Context: {context}\\n\\nQuestion: {question}\\nAnswer:")
+    context = "\n\n".join([d.page_content for d in docs])
+    rag_prompt = ChatPromptTemplate.from_template("Context: {context}\n\nQuestion: {question}\nAnswer:")
     chain = rag_prompt | llm | StrOutputParser()
     answer = chain.invoke({"context": context, "question": question})
     return answer, docs
@@ -88,9 +87,3 @@ if prompt := st.chat_input("How many sick leaves can I take?"):
                     st.write(f"- {doc.metadata.get('source', 'Policy Document')}")
 
     st.session_state.messages.append({"role": "assistant", "content": response})
-"""
-
-with open("app.py", "w") as f:
-    f.write(app_code.strip())
-
-print("app.py created.")
