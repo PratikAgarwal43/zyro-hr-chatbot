@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbedembeddings
+from langchain_groq import GroqEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
@@ -14,7 +14,6 @@ st.title("Zyro Dynamics HR Help Desk")
 st.markdown("Ask any question regarding company policies, leave, or conduct.")
 
 # --- 1. Secure API Key Loading ---
-# This looks for GROQ_API_KEY inside your Streamlit Cloud App Secrets
 if "GROQ_API_KEY" in st.secrets:
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 else:
@@ -24,7 +23,6 @@ else:
 # --- 2. Initialize Vector Database ---
 @st.cache_resource
 def initialize_vector_db():
-    # Since your PDFs are in the root directory next to app.py, use "./"
     loader = PyPDFDirectoryLoader("./")
     docs = loader.load()
     
@@ -35,31 +33,28 @@ def initialize_vector_db():
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     final_documents = text_splitter.split_documents(docs)
     
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    # Using cloud-based Groq embeddings instead of heavy local torch models
+    embeddings = GroqEmbeddings(model_name="nomic-embed-text-v1.5")
     vector_store = FAISS.from_documents(final_documents, embeddings)
     return vector_store
 
-with st.spinner("Processing HR Documents..."):
+with st.spinner("Processing HR Documents securely via Groq..."):
     vectors = initialize_vector_db()
 
 # --- 3. Chat Interface ---
 if vectors:
-    # Initialize chat history
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # Display past messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Accept user input
     if user_question := st.chat_input("How can I help you today?"):
         with st.chat_message("user"):
             st.markdown(user_question)
         st.session_state.messages.append({"role": "user", "content": user_question})
 
-        # Set up LLM Chain
         llm = ChatGroq(model_name="llama3-8b-8192")
         
         prompt = ChatPromptTemplate.from_template("""
@@ -72,7 +67,6 @@ if vectors:
         Question: {input}
         """)
         
-        # Retrieve context from FAISS
         retriever = vectors.as_retriever(search_kwargs={"k": 3})
         context_docs = retriever.invoke(user_question)
         context_text = "\n\n".join([doc.page_content for doc in context_docs])
