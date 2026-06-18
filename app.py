@@ -39,7 +39,7 @@ def setup_rag():
     
     # Initialize LLM (Ensure secrets are set in your deployment environment)
     # Note: Replace with your chosen provider logic from Cell 9
-    llm = ChatGroq(model="llama3-8b-8192", temperature=0.1) 
+    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1) 
     
     return retriever, llm
 
