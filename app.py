@@ -1,4 +1,3 @@
-app_code = """
 # TODO: Build your Streamlit chatbot application
 
 import streamlit as st
@@ -59,8 +58,8 @@ def get_response(question):
 
     # RAG Chain
     docs = retriever.invoke(question)
-    context = "\\n\\n".join([d.page_content for d in docs])
-    rag_prompt = ChatPromptTemplate.from_template("Context: {context}\\n\\nQuestion: {question}\\nAnswer:")
+    context = "\n\n".join([d.page_content for d in docs])
+    rag_prompt = ChatPromptTemplate.from_template("Context: {context}\n\nQuestion: {question}\nAnswer:")
     chain = rag_prompt | llm | StrOutputParser()
     answer = chain.invoke({"context": context, "question": question})
     return answer, docs
@@ -88,9 +87,3 @@ if prompt := st.chat_input("How many sick leaves can I take?"):
                     st.write(f"- {doc.metadata.get('source', 'Policy Document')}")
 
     st.session_state.messages.append({"role": "assistant", "content": response})
-"""
-
-with open("app.py", "w") as f:
-    f.write(app_code.strip())
-
-print("app.py created.")
