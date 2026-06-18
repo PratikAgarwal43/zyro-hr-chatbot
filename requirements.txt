@@ -18,3 +18,5 @@ streamlit
 langsmith
 python-dotenv
 tiktoken
+torch
+torchvision
