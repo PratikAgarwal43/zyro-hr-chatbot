@@ -24,7 +24,7 @@ st.markdown("Ask any question regarding company policies, leave, or conduct.")
 @st.cache_resource
 def setup_rag():
     # Path to documents
-    path = "/kaggle/input/zyro-dynamics-hr-corpus/"
+    path = "./"
     
     # Load and Chunk
     loader = PyPDFDirectoryLoader(path)
