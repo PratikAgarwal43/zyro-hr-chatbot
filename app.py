@@ -1,81 +1,96 @@
+app_code = """
+# TODO: Build your Streamlit chatbot application
+
 import streamlit as st
+
+# your code here
 import os
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_groq import GroqEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 # --- Page Config ---
-st.set_page_config(page_title="Zyro Dynamics HR Bot", page_icon="📑")
+st.set_page_config(page_title="Zyro Dynamics HR Bot", page_icon="🏢")
 st.title("Zyro Dynamics HR Help Desk")
 st.markdown("Ask any question regarding company policies, leave, or conduct.")
 
-# --- 1. Secure API Key Loading ---
-if "GROQ_API_KEY" in st.secrets:
-    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
-else:
-    st.error("Please configure your GROQ_API_KEY in the Streamlit Secrets setting.")
+# --- RAG Setup (Cached to prevent reloading on every interaction) ---
+@st.cache_resource
+def setup_rag():
+    # Path to documents
+    path = "/kaggle/input/zyro-dynamics-hr-corpus/"
+    
+    # Load and Chunk
+    loader = PyPDFDirectoryLoader(path)
+    documents = loader.load()
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    chunks = splitter.split_documents(documents)
+    
+    # Embeddings and Vector Store
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    vectorstore = FAISS.from_documents(chunks, embeddings)
+    retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 3})
+    
+    # Initialize LLM (Ensure secrets are set in your deployment environment)
+    # Note: Replace with your chosen provider logic from Cell 9
+    llm = ChatGroq(model="llama3-8b-8192", temperature=0.1) 
+    
+    return retriever, llm
+
+try:
+    retriever, llm = setup_rag()
+except Exception as e:
+    st.error("Please ensure your API keys are configured and the dataset is attached.")
     st.stop()
 
-# --- 2. Initialize Vector Database ---
-@st.cache_resource
-def initialize_vector_db():
-    loader = PyPDFDirectoryLoader("./")
-    docs = loader.load()
-    
-    if not docs:
-        st.error("No PDF documents found in the repository!")
-        return None
-        
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    final_documents = text_splitter.split_documents(docs)
-    
-    # Using cloud-based Groq embeddings instead of heavy local torch models
-    embeddings = GroqEmbeddings(model_name="nomic-embed-text-v1.5")
-    vector_store = FAISS.from_documents(final_documents, embeddings)
-    return vector_store
+# --- Helpers ---
+def get_response(question):
+    # Guardrail
+    oos_prompt = ChatPromptTemplate.from_template("Is this HR-related? Answer 'IN' or 'OUT': {question}")
+    guard_chain = oos_prompt | llm | StrOutputParser()
+    if "OUT" in guard_chain.invoke({"question": question}).upper():
+        return "I can only answer HR-related questions from Zyro Dynamics policy documents.", []
 
-with st.spinner("Processing HR Documents securely via Groq..."):
-    vectors = initialize_vector_db()
+    # RAG Chain
+    docs = retriever.invoke(question)
+    context = "\\n\\n".join([d.page_content for d in docs])
+    rag_prompt = ChatPromptTemplate.from_template("Context: {context}\\n\\nQuestion: {question}\\nAnswer:")
+    chain = rag_prompt | llm | StrOutputParser()
+    answer = chain.invoke({"context": context, "question": question})
+    return answer, docs
 
-# --- 3. Chat Interface ---
-if vectors:
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+# --- Chat Interface ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-    if user_question := st.chat_input("How can I help you today?"):
-        with st.chat_message("user"):
-            st.markdown(user_question)
-        st.session_state.messages.append({"role": "user", "content": user_question})
+if prompt := st.chat_input("How many sick leaves can I take?"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-        llm = ChatGroq(model_name="llama3-8b-8192")
+    with st.chat_message("assistant"):
+        response, sources = get_response(prompt)
+        st.markdown(response)
         
-        prompt = ChatPromptTemplate.from_template("""
-        You are an expert HR assistant for Zyro Dynamics. Answer the question based strictly on the provided context. 
-        If you do not know the answer, politely state that you cannot find it in the company policies.
-        
-        Context:
-        {context}
-        
-        Question: {input}
-        """)
-        
-        retriever = vectors.as_retriever(search_kwargs={"k": 3})
-        context_docs = retriever.invoke(user_question)
-        context_text = "\n\n".join([doc.page_content for doc in context_docs])
-        
-        chain = prompt | llm | StrOutputParser()
-        
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = chain.invoke({"context": context_text, "input": user_question})
-                st.markdown(response)
-                
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        if sources:
+            with st.expander("View Sources"):
+                for doc in sources:
+                    st.write(f"- {doc.metadata.get('source', 'Policy Document')}")
+
+    st.session_state.messages.append({"role": "assistant", "content": response})
+"""
+
+with open("app.py", "w") as f:
+    f.write(app_code.strip())
+
+print("app.py created.")
