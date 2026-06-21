@@ -23,7 +23,7 @@ st.markdown("Ask any question regarding company policies, leave, or conduct.")
 @st.cache_resource
 def setup_rag():
     # Path to documents
-    path = "/kaggle/input/zyro-dynamics-hr-corpus/"
+    path = "/"
     
     # Load and Chunk
     loader = PyPDFDirectoryLoader(path)
@@ -38,7 +38,8 @@ def setup_rag():
     
     # Initialize LLM (Ensure secrets are set in your deployment environment)
     # Note: Replace with your chosen provider logic from Cell 9
-    llm = ChatGroq(model="llama3-8b-8192", temperature=0.1) 
+  
+llm = ChatGoogleGenerativeAI(model='gemini-3.5-flash', temperature=0.1)
     
     return retriever, llm
 
