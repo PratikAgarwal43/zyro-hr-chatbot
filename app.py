@@ -39,7 +39,7 @@ def setup_rag():
     # Initialize LLM (Ensure secrets are set in your deployment environment)
     # Note: Replace with your chosen provider logic from Cell 9
   
-llm = ChatGoogleGenerativeAI(model='gemini-3.5-flash', temperature=0.1)
+    llm = ChatGoogleGenerativeAI(model='gemini-3.5-flash', temperature=0.1)
     
     return retriever, llm
 
