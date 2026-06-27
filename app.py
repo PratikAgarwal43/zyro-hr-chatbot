@@ -1,4 +1,3 @@
-app_code = """
 import streamlit as st
 import os
 from langchain_community.document_loaders import PyPDFDirectoryLoader
@@ -58,7 +57,7 @@ def get_response(question):
     oos_prompt = ChatPromptTemplate.from_template(
         "Analyze the user query. Determine if it is explicitly related to corporate employment, workforce structures, "
         "benefits, or conduct rules. Cross-policy queries or multi-rule comparisons are strictly IN_SCOPE. "
-        "Respond with ONLY 'IN_SCOPE' or 'OUT_OF_SCOPE': {question}\\nAnswer:"
+        "Respond with ONLY 'IN_SCOPE' or 'OUT_OF_SCOPE': {question}\nAnswer:"
     )
     guard_chain = oos_prompt | llm | StrOutputParser()
     if "OUT_OF_SCOPE" in guard_chain.invoke({"question": question}).upper():
@@ -66,10 +65,10 @@ def get_response(question):
 
     # Dynamic Retrieval Assembly Frame
     docs = retriever.invoke(question)
-    context = "\\n\\n".join([f"Source: {d.metadata.get('source', 'Unknown')}\\nContent: {d.page_content}" for d in docs])
+    context = "\n\n".join([f"Source: {d.metadata.get('source', 'Unknown')}\nContent: {d.page_content}" for d in docs])
     
     # Authoritative Compliance-Grade Operational Prompt
-    rag_prompt = ChatPromptTemplate.from_template(\"\"\"
+    rag_prompt = ChatPromptTemplate.from_template("""
     You are a precise HR Compliance Officer for Zyro Dynamics Pvt. Ltd.
     Answer the employee's question with absolute factual accuracy based ONLY on the internal policy context below. Do not extrapolate or introduce structural pleasantries.
     
@@ -77,7 +76,7 @@ def get_response(question):
     {context}
     
     Question: {question}
-    Answer:\"\"\")
+    Answer:""")
     
     chain = rag_prompt | llm | StrOutputParser()
     answer = chain.invoke({"context": context, "question": question})
@@ -107,9 +106,3 @@ if prompt := st.chat_input("Ask a question regarding Zyro Dynamics compliance ru
                     st.write(f"- {filename}")
 
     st.session_state.messages.append({"role": "assistant", "content": response})
-"""
-
-with open("app.py", "w") as f:
-    f.write(app_code.strip())
-
-print("app.py created.")
